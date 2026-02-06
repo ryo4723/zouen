@@ -11,26 +11,18 @@
       background: #fff;
       font-family: sans-serif;
     }
-    img {
-      display: none;
-      max-width: 90%;
-      margin: 10px auto;
-    }
     canvas {
       border: 1px solid #ccc;
       touch-action: none;
     }
     button {
-      margin: 12px;
+      margin: 8px;
       padding: 10px 24px;
       font-size: 16px;
     }
   </style>
 </head>
 <body>
-
-<!-- ★ 追加：模範画像（最初は非表示） -->
-<img id="model" src="model.jpg">
 
 <canvas id="canvas" width="360" height="600"></canvas><br>
 <button id="nextBtn">ネクスト</button>
@@ -39,16 +31,15 @@
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const modelImg = document.getElementById("model");
+
+// 模範画像（jpgでOK）
+const modelImage = new Image();
+modelImage.src = "model.jpg";
 
 let currentTurn = 1;
 let branchIdCounter = 1;
 let branches = [];
-
-document.getElementById("retryBtn").onclick = () => {
-  location.reload();
-};
-
+let showModel = false;
 
 /* =========================
    枝生成
@@ -77,23 +68,43 @@ function createBranch(parent, relativeAngle, length) {
 /* =========================
    初期の幹
 ========================= */
-branches.push({
-  id: 1,
-  parentId: null,
-  startX: canvas.width / 2,
-  startY: canvas.height - 40,
-  endX: canvas.width / 2,
-  endY: canvas.height - 100,
-  angle: 0,
-  alive: true,
-  grown: false
-});
+function init() {
+  currentTurn = 1;
+  branchIdCounter = 1;
+  branches = [];
+  showModel = false;
+
+  branches.push({
+    id: 1,
+    parentId: null,
+    startX: canvas.width / 2,
+    startY: canvas.height - 40,
+    endX: canvas.width / 2,
+    endY: canvas.height - 100,
+    angle: 0,
+    alive: true,
+    grown: false
+  });
+
+  draw();
+}
 
 /* =========================
    描画
 ========================= */
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 模範形を表示（canvas内・上に詰める）
+  if (showModel && modelImage.complete) {
+    const scale = 0.4;
+    const w = modelImage.width * scale;
+    const h = modelImage.height * scale;
+    const x = (canvas.width - w) / 2;
+    const y = 10;
+    ctx.drawImage(modelImage, x, y, w, h);
+  }
+
   ctx.strokeStyle = "#000";
   ctx.lineWidth = 2;
 
@@ -110,7 +121,7 @@ function draw() {
    分岐
 ========================= */
 function growBranches() {
-  const halfAngle = currentTurn === 1 ? 30 : 35;
+  const halfAngle = currentTurn === 1 ? 30 : 35; // 最初60度、その後70度
   const length = 40;
 
   branches
@@ -143,12 +154,8 @@ function distancePointToSegment(px, py, x1, y1, x2, y2) {
 ========================= */
 function deleteBranchAndChildren(branchId) {
   branches.forEach(b => {
-    if (b.id === branchId) {
-      b.alive = false;
-    }
-    if (b.parentId === branchId) {
-      deleteBranchAndChildren(b.id);
-    }
+    if (b.id === branchId) b.alive = false;
+    if (b.parentId === branchId) deleteBranchAndChildren(b.id);
   });
 }
 
@@ -189,8 +196,8 @@ canvas.addEventListener("pointerdown", e => {
 ========================= */
 document.getElementById("nextBtn").onclick = () => {
   if (currentTurn >= 6) {
-    // ★ 変更点：正解アラートを出さず、模範を表示
-    modelImg.style.display = "block";
+    showModel = true;
+    draw();
     return;
   }
   growBranches();
@@ -198,7 +205,14 @@ document.getElementById("nextBtn").onclick = () => {
   draw();
 };
 
-draw();
+/* =========================
+   リトライ
+========================= */
+document.getElementById("retryBtn").onclick = () => {
+  init();
+};
+
+init();
 </script>
 
 </body>
