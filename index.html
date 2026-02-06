@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>松の剪定シミュレーター</title>
+  <style>
+    body {
+      margin: 0;
+      text-align: center;
+      background: #fff;
+      font-family: sans-serif;
+    }
+    img {
+      display: none;
+      max-width: 90%;
+      margin: 10px auto;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      touch-action: none;
+    }
+    button {
+      margin: 12px;
+      padding: 10px 24px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ★ 追加：模範画像（最初は非表示） -->
+<img id="model" src="model.jpg">
+
+<canvas id="canvas" width="360" height="600"></canvas><br>
+<button id="nextBtn">ネクスト</button>
+<button id="retryBtn">リトライ</button>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const modelImg = document.getElementById("model");
+
+let currentTurn = 1;
+let branchIdCounter = 1;
+let branches = [];
+
+document.getElementById("retryBtn").onclick = () => {
+  location.reload();
+};
+
+
+/* =========================
+   枝生成
+========================= */
+function createBranch(parent, relativeAngle, length) {
+  const angle = parent.angle + relativeAngle;
+  const rad = angle * Math.PI / 180;
+
+  const startX = parent.endX;
+  const startY = parent.endY;
+
+  const endX = startX + Math.sin(rad) * length;
+  const endY = startY - Math.cos(rad) * length;
+
+  return {
+    id: ++branchIdCounter,
+    parentId: parent.id,
+    startX, startY,
+    endX, endY,
+    angle,
+    alive: true,
+    grown: false
+  };
+}
+
+/* =========================
+   初期の幹
+========================= */
+branches.push({
+  id: 1,
+  parentId: null,
+  startX: canvas.width / 2,
+  startY: canvas.height - 40,
+  endX: canvas.width / 2,
+  endY: canvas.height - 100,
+  angle: 0,
+  alive: true,
+  grown: false
+});
+
+/* =========================
+   描画
+========================= */
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 2;
+
+  branches.forEach(b => {
+    if (!b.alive) return;
+    ctx.beginPath();
+    ctx.moveTo(b.startX, b.startY);
+    ctx.lineTo(b.endX, b.endY);
+    ctx.stroke();
+  });
+}
+
+/* =========================
+   分岐
+========================= */
+function growBranches() {
+  const halfAngle = currentTurn === 1 ? 30 : 35;
+  const length = 40;
+
+  branches
+    .filter(b => b.alive && !b.grown)
+    .forEach(b => {
+      branches.push(createBranch(b, -halfAngle, length));
+      branches.push(createBranch(b,  halfAngle, length));
+      b.grown = true;
+    });
+}
+
+/* =========================
+   点と線分の距離
+========================= */
+function distancePointToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+
+  const t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy);
+  const clamped = Math.max(0, Math.min(1, t));
+
+  const cx = x1 + clamped * dx;
+  const cy = y1 + clamped * dy;
+
+  return Math.hypot(px - cx, py - cy);
+}
+
+/* =========================
+   枝とその先を消す
+========================= */
+function deleteBranchAndChildren(branchId) {
+  branches.forEach(b => {
+    if (b.id === branchId) {
+      b.alive = false;
+    }
+    if (b.parentId === branchId) {
+      deleteBranchAndChildren(b.id);
+    }
+  });
+}
+
+/* =========================
+   タップ処理
+========================= */
+canvas.addEventListener("pointerdown", e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  let closest = null;
+  let minDist = 999;
+
+  branches.forEach(b => {
+    if (!b.alive || b.id === 1) return;
+
+    const dist = distancePointToSegment(
+      x, y,
+      b.startX, b.startY,
+      b.endX, b.endY
+    );
+
+    if (dist < 8 && dist < minDist) {
+      minDist = dist;
+      closest = b;
+    }
+  });
+
+  if (closest) {
+    deleteBranchAndChildren(closest.id);
+    draw();
+  }
+});
+
+/* =========================
+   ネクスト
+========================= */
+document.getElementById("nextBtn").onclick = () => {
+  if (currentTurn >= 6) {
+    // ★ 変更点：正解アラートを出さず、模範を表示
+    modelImg.style.display = "block";
+    return;
+  }
+  growBranches();
+  currentTurn++;
+  draw();
+};
+
+draw();
+</script>
+
+</body>
+</html>
